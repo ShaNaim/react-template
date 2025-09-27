@@ -1,21 +1,60 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useState } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useLogin } from "@/utils/hooks/useAuth";
+import { useAuthStore } from "@/utils/store/authStore";
+import { loginSchema, type LoginFormData } from "@/utils/schemas/auth";
 
 export const Route = createFileRoute("/login/")({
   component: LoginPage,
 });
 
 function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
+  const router = useRouter();
+  const { isAuthenticated } = useAuthStore();
+  const loginMutation = useLogin();
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log("Login attempt:", { email, password, rememberMe });
+  const form = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+      remember: false,
+    },
+  });
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      const redirectPath = sessionStorage.getItem("redirectAfterLogin") || "/";
+      sessionStorage.removeItem("redirectAfterLogin");
+      router.navigate({ to: redirectPath });
+    }
+  }, [isAuthenticated, router]);
+
+  const onSubmit = async (data: LoginFormData) => {
+    try {
+      await loginMutation.mutateAsync(data);
+      const redirectPath = sessionStorage.getItem("redirectAfterLogin") || "/dashboard";
+      sessionStorage.removeItem("redirectAfterLogin");
+      router.navigate({ to: redirectPath });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
+      console.error("Login failed:", error);
+    }
+  };
+
+  const getErrorMessage = (error: unknown): string => {
+    if (error && typeof error === "object" && "response" in error) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const axiosError = error as any;
+      return axiosError.response?.data?.message || "Login failed. Please try again.";
+    }
+    return "Login failed. Please try again.";
   };
 
   return (
@@ -27,45 +66,73 @@ function LoginPage() {
         </div>
 
         <div className="bg-card rounded-lg shadow-lg p-8 border border-border">
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email address</Label>
-              <Input id="email" name="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Enter your email" />
-            </div>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              {loginMutation.isError && (
+                <div className="p-3 rounded-md bg-destructive/10 border border-destructive/20">
+                  <p className="text-sm text-destructive">{getErrorMessage(loginMutation.error)}</p>
+                </div>
+              )}
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" name="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" />
-            </div>
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email address</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="Enter your email" disabled={loginMutation.isPending} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <input id="remember-me" name="remember-me" type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="h-4 w-4 text-primary focus:ring-primary border-border rounded" />
-                <Label htmlFor="remember-me" className="text-sm">
-                  Remember me
-                </Label>
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                      <Input type="password" placeholder="Enter your password" disabled={loginMutation.isPending} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex items-center justify-between">
+                <FormField
+                  control={form.control}
+                  name="remember"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} disabled={loginMutation.isPending} />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="text-sm font-normal">Remember me</FormLabel>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                <button type="button" className="text-sm text-primary hover:text-primary/80" disabled={loginMutation.isPending}>
+                  Forgot password?
+                </button>
               </div>
 
-              <button type="button" className="text-sm text-primary hover:text-primary/80">
-                Forgot password?
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <Button type="submit" className="w-full">
-                Sign in
+              <Button type="submit" className="w-full" disabled={loginMutation.isPending}>
+                {loginMutation.isPending ? "Signing in..." : "Sign in"}
               </Button>
-
-              <Button type="button" variant="outline" className="w-full">
-                Continue with Google
-              </Button>
-            </div>
-          </form>
+            </form>
+          </Form>
 
           <div className="mt-6 text-center">
             <p className="text-sm text-muted-foreground">
               Don't have an account?{" "}
-              <button type="button" className="text-primary hover:text-primary/80 font-medium">
+              <button type="button" className="text-primary hover:text-primary/80 font-medium" disabled={loginMutation.isPending}>
                 Sign up
               </button>
             </p>
