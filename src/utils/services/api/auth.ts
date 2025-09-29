@@ -27,7 +27,6 @@ export interface ApiError {
 
 export class AuthAPI {
   static async getCsrfCookie(): Promise<void> {
-    // IMPORTANT REMOVE
     return;
     await api.get("/api/v1/csrf-cookie");
   }
@@ -35,12 +34,12 @@ export class AuthAPI {
   // IMPORTANT: DUMMY . REMOVE LATER
   static async login(credentials: LoginCredentials): Promise<AuthResponse> {
     await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate delay
-    if (credentials.email === "admin@operations.com" && credentials.password === "admin1234") {
+    if (credentials.email === "aminul@employers.io" && credentials.password === "password") {
       return {
         user: {
           id: 1,
           name: "Admin User",
-          email: "admin@operations.com",
+          email: "aminul@employers.io",
           email_verified_at: new Date().toISOString(),
           created_at: "2024-01-01T00:00:00Z",
           updated_at: new Date().toISOString(),
@@ -54,7 +53,7 @@ export class AuthAPI {
   }
 
   // static async login(credentials: LoginCredentials): Promise<AuthResponse> {
-  //   const response = await api.post("/api/v1/login", credentials);
+  //   const response = await api.post("/auth/login", credentials);
   //   return response.data;
   // }
 

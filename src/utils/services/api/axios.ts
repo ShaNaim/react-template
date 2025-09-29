@@ -6,11 +6,6 @@ const api: AxiosInstance = axios.create({
   timeout: 10000,
   withCredentials: true,
   withXSRFToken: true,
-  headers: {
-    Accept: "application/json",
-    "Content-Type": "application/json",
-    "X-Requested-With": "XMLHttpRequest",
-  },
 });
 
 api.interceptors.request.use(
